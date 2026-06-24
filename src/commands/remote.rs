@@ -1445,6 +1445,40 @@ mod tests {
             Some(0)
         );
     }
+
+    #[test]
+    fn live_response_command_error_detects_nested_upload_failure() {
+        let value = json!({
+            "data": {
+                "status": "success",
+                "exit_code": 0,
+                "output": {
+                    "success": false,
+                    "error_message": "Failed to write file: access denied"
+                }
+            }
+        });
+
+        let error = live_response_command_error(&value).expect("nested failure should be reported");
+        assert!(error.contains("access denied"));
+    }
+
+    #[test]
+    fn live_response_command_error_accepts_successful_upload_object() {
+        let value = json!({
+            "data": {
+                "status": "success",
+                "exit_code": 0,
+                "output": {
+                    "path": "\\\\?\\D:\\Temp\\agent.exe",
+                    "sha256": "abc123",
+                    "size": 42
+                }
+            }
+        });
+
+        assert!(live_response_command_error(&value).is_none());
+    }
 }
 
 async fn send_phoenix<S>(
