@@ -931,14 +931,33 @@ fn live_response_command_error(value: &Value) -> Option<String> {
         .unwrap_or("unknown");
     let exit_code = data.get("exit_code").and_then(Value::as_i64).unwrap_or(0);
 
+    if let Some(output) = data.get("output") {
+        if output
+            .get("success")
+            .and_then(Value::as_bool)
+            .is_some_and(|success| !success)
+        {
+            let message = output
+                .get("error_message")
+                .and_then(Value::as_str)
+                .unwrap_or("remote command reported success=false");
+            return Some(format!("status={status} exit_code={exit_code}: {message}"));
+        }
+    }
+
     if status == "success" && exit_code == 0 {
         return None;
     }
 
-    let output = data
-        .get("output")
-        .and_then(Value::as_str)
-        .unwrap_or("remote command did not report output");
+    let output = data.get("output").map_or_else(
+        || "remote command did not report output".to_owned(),
+        |output| {
+            output
+                .as_str()
+                .map(ToOwned::to_owned)
+                .unwrap_or_else(|| output.to_string())
+        },
+    );
 
     Some(format!("status={status} exit_code={exit_code}: {output}"))
 }
